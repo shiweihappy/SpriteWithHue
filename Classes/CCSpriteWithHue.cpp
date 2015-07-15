@@ -132,12 +132,14 @@ void SpriteWithHue::setupDefaultSettings()
 
 void SpriteWithHue::initShader()
 {
-    auto glProgram = cocos2d::GLProgram::createWithByteArrays(cocos2d::ccPositionTextureColor_noMVP_vert, shaderBody());
-    glProgram->bindAttribLocation(cocos2d::GLProgram::ATTRIBUTE_NAME_POSITION, cocos2d::GLProgram::VERTEX_ATTRIB_POSITION);
-    glProgram->bindAttribLocation(cocos2d::GLProgram::ATTRIBUTE_NAME_TEX_COORD, cocos2d::GLProgram::VERTEX_ATTRIB_TEX_COORD);
-    glProgram->link();
-    glProgram->updateUniforms();
-    setGLProgram(glProgram);
+    auto glprogram = cocos2d::GLProgramCache::getInstance()->getGLProgram("hue_program");
+    if(!glprogram)
+    {
+       glprogram = cocos2d::GLProgram::createWithByteArrays(cocos2d::ccPositionTextureColor_noMVP_vert, shaderBody());
+       cocos2d::GLProgramCache::getInstance()->addGLProgram(glprogram, "hue_program");
+    }
+    auto glprogramstate = cocos2d::GLProgramState::create(glprogram);
+    setGLProgramState(glprogramstate);
     updateColor();
 }
 
@@ -153,17 +155,17 @@ void SpriteWithHue::updateColor()
     updateAlpha();
 }
 
+void SpriteWithHue::hueUniformCallback(cocos2d::GLProgram *p, cocos2d::Uniform *u)
+{
+   glUniformMatrix3fv(u->location, 1, GL_FALSE, (GLfloat*)&_mat);
+}
+
 void SpriteWithHue::updateColorMatrix()
 {
-    GLfloat mat[3][3];
-    hueMatrix(mat, _hue);
-    premultiplyAlpha(mat, getAlpha());
+    hueMatrix(_mat, _hue);
+    premultiplyAlpha(_mat, getAlpha());
 
-    auto callback = [this, mat](cocos2d::GLProgram *p, cocos2d::Uniform *u)
-    {
-      glUniformMatrix3fv(u->location, 1, GL_FALSE, (GLfloat*)&mat);
-    };
-    getGLProgramState()->setUniformCallback("u_hue", callback);
+    getGLProgramState()->setUniformCallback("u_hue", CC_CALLBACK_2(SpriteWithHue::hueUniformCallback, this));
 }
 
 void SpriteWithHue::updateAlpha()
